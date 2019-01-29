@@ -2,7 +2,7 @@
 //! The binary.
 //!
 
-use std::{collections::BTreeSet, fs};
+use std::{collections::BTreeSet, env, fs};
 
 use sxd_document::{parser, Package};
 use sxd_xpath::{nodeset::Node, Context, Factory, Value};
@@ -36,20 +36,29 @@ impl<'d> Evaluator<'d> {
         self.package.as_document().root().into()
     }
 
-    pub fn evaluate(&self, node: Node<'d>, path: &'static str) -> Value {
+    pub fn evaluate(&self, node: Node<'d>, path: &str) -> Value {
         let xpath = self.factory.build(path).expect("XPath building error").expect("XPath building error");
         xpath.evaluate(&self.context, node).expect("XPath evaluation error")
     }
 }
 
 fn main() -> Result<(), ()> {
-    let xml = fs::read_to_string("data.xml").expect("File reading error");
+    let args: Vec<String> = env::args().collect();
+    let xml_path = args[1].to_owned();
+    let xpath = args[2].to_owned();
+    let prefix = args[3].to_owned();
+
+    println!("File: {}", xml_path);
+    println!("Path: {}", xpath);
+    println!("Pref: {}", prefix);
+
+    let xml = fs::read_to_string(&xml_path).expect("File reading error");
     let evaluator = Evaluator::new(&xml);
     let mut paths = BTreeSet::new();
-    if let Value::Nodeset(nodeset) = evaluator.evaluate(evaluator.root(), "//pbs:fee") {
+    if let Value::Nodeset(nodeset) = evaluator.evaluate(evaluator.root(), &xpath) {
         for node in nodeset.iter() {
             let mut parent = node;
-            let mut path = vec!["fee"];
+            let mut path = vec![node.element().unwrap().name().local_part()];
             while let Value::Nodeset(p) = evaluator.evaluate(parent, "..") {
                 match p.iter().take(1).collect::<Vec<Node>>().get(0) {
                     Some(p) => {
@@ -64,7 +73,7 @@ fn main() -> Result<(), ()> {
             path.reverse();
             let path = path
                 .iter()
-                .map(|e| "pbs:".to_string() + e)
+                .map(|e| prefix.to_owned() + e)
                 .collect::<Vec<String>>()
                 .join("/");
             paths.insert(path);
