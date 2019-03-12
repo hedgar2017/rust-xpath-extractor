@@ -1,9 +1,9 @@
 [package]
 name = "rust-xpath-extractor"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["hedgar2017 <hedgar2017@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-sxd-xpath = "0.4.2"
-sxd-document = "0.3.0"
+sxd-xpath = "0.4"
+sxd-document = "0.3"

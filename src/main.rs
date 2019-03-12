@@ -2,7 +2,10 @@
 //! The binary.
 //!
 
-use std::{collections::BTreeSet, env, fs};
+use std::{
+    collections::{BTreeSet, HashMap},
+    env, fs,
+};
 
 use sxd_document::{parser, Package};
 use sxd_xpath::{nodeset::Node, Context, Factory, Value};
@@ -14,16 +17,14 @@ pub struct Evaluator<'d> {
 }
 
 impl<'d> Evaluator<'d> {
-    pub fn new(xml: &str) -> Self {
+    pub fn new(xml: &str, namespaces: &HashMap<&str, &str>) -> Self {
         let package = parser::parse(&xml).expect("Parsing error");
         let factory = Factory::new();
 
         let mut context = Context::new();
-        context.set_namespace("pbs", "http://schema.pbs.gov.au/");
-        context.set_namespace("xml", "http://www.w3.org/XML/1998/namespace");
-        context.set_namespace("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
-        context.set_namespace("dbk", "http://docbook.org/ns/docbook");
-        context.set_namespace("xlink", "http://www.w3.org/1999/xlink");
+        for (key, value) in namespaces.iter() {
+            context.set_namespace(key, value);
+        }
 
         Self {
             package,
@@ -37,8 +38,14 @@ impl<'d> Evaluator<'d> {
     }
 
     pub fn evaluate(&self, node: Node<'d>, path: &str) -> Value {
-        let xpath = self.factory.build(path).expect("XPath building error").expect("XPath building error");
-        xpath.evaluate(&self.context, node).expect("XPath evaluation error")
+        let xpath = self
+            .factory
+            .build(path)
+            .expect("XPath building error")
+            .expect("XPath building error");
+        xpath
+            .evaluate(&self.context, node)
+            .expect("XPath evaluation error")
     }
 }
 
@@ -52,8 +59,15 @@ fn main() -> Result<(), ()> {
     println!("Path: {}", xpath);
     println!("Pref: {}", prefix);
 
+    let mut namespaces = HashMap::with_capacity(5);
+    namespaces.insert("pbs", "http://schema.pbs.gov.au/");
+    namespaces.insert("xml", "http://www.w3.org/XML/1998/namespace");
+    namespaces.insert("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#");
+    namespaces.insert("dbk", "http://docbook.org/ns/docbook");
+    namespaces.insert("xlink", "http://www.w3.org/1999/xlink");
+
     let xml = fs::read_to_string(&xml_path).expect("File reading error");
-    let evaluator = Evaluator::new(&xml);
+    let evaluator = Evaluator::new(&xml, &namespaces);
     let mut paths = BTreeSet::new();
     if let Value::Nodeset(nodeset) = evaluator.evaluate(evaluator.root(), &xpath) {
         for node in nodeset.iter() {
